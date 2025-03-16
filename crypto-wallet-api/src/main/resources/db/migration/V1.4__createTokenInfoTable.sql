@@ -1,0 +1,7 @@
+CREATE TABLE token_info (
+    id UUID PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    asset_id VARCHAR(100) NOT NULL UNIQUE,
+    last_updated TIMESTAMP NOT NULL
+);
