@@ -1,218 +1,248 @@
 # 💰 Crypto Wallet Platform
 
-This project is a backend system for tracking cryptocurrency assets in user wallets.
-It allows users to manage their assets, keep them updated with real-time prices, and evaluate the wallet’s performance
-based on historical data.
+This project is a backend system for tracking cryptocurrency assets in user wallets. It allows users to manage their
+assets, keep them updated with real-time prices, and evaluate the wallet’s performance based on historical data.
 
 ---
 
-## 🧱 Architecture & Domain Model
+## 🧠 Architecture & Domain Model
 
-Principles with a focus on aggregates and modularity.
+### 🧩 Domain Aggregates
 
-### 🧠 Domain Aggregates
-
-- **User Aggregate**
-    - Root entity: `User`
-    - A user is uniquely identified by their email and **owns a single Wallet**.
-    - In future iterations, the `User` aggregate could evolve to contain more behaviors and permissions.
-
-- **Wallet Aggregate**
-    - Root entity: `Wallet`
-    - Contains multiple `Asset` entities.
-    - Responsible for adding/updating assets, tracking prices, and performing wallet evaluations.
-
-- **Asset**: Represents a crypto token held in the wallet.
-- **TokenPrice**: Value Object storing current or historical token price.
-- **TokenInfo**: Metadata about tokens (symbol, asset ID) fetched from CoinCap.
-- **TokenEvaluationDate**: Value Object that encapsulates the reference date for wallet evaluation logic. Defaults to
-  current date when not provided.
-
-📌 *Only Aggregate Roots (`User` and `Wallet`) are responsible for maintaining consistency and lifecycle of their
-internals.*
+- **User (Aggregate Root)**: Identified by email. Each user owns one wallet.
+- **Wallet (Aggregate Root)**: Handles all logic for managing crypto assets.
+- **Asset (Entity)**: Represents a crypto token held in the wallet.
+- **TokenPrice (Value Object)**: Stores current or historical token price.
+- **TokenInfo (Value Object)**: Metadata from CoinCap API (symbol, asset ID).
+- **TokenEvaluationDate (Value Object)**: Represents the evaluation date context.
 
 ---
+
 ## 🧭 Architecture Overview
 
 The diagram below summarizes the domain model, use cases, and infrastructure boundaries:
 
 <img src="crypto-wallet-api/src/main/resources/static/arch_diagram.png" alt="Architecture Diagram" style="width: 80%; max-width: 900px;" />
 
-
 ---
 
-## 🧠 Project Structure
+## 📦 Modular Design
 
-The project root is `crypto-wallet-platform`, designed to host multiple services in the future.
+- **crypto-wallet-platform/**  
+  Main project container. Future modules like `auth`, `gateway`, etc., could be added here.
 
-### 🧩 Subproject: `crypto-wallet-api`
+- **crypto-wallet-api/**  
+  The core backend application. Organized by layer:
 
-This is the main backend application. It follows a modular architecture:
-
-```
-crypto-wallet-platform/
-└── crypto-wallet-api/
-    ├── application/      # Use Cases
-    │   └── wallet/
-    │       ├── create/
-    │       ├── addAsset/
-    │       ├── evaluate/
-    │       └── get/
-    ├── domain/           # Entities, Aggregates, Gateways, Exceptions
-    │   ├── user/
-    │   └── wallet/
-    ├── infrastructure/   # External Interfaces
-    │   ├── controller/
-    │   ├── configurations/
-    │   ├── job/
-    │   ├── handler/
-    │   ├── restclient/
-    │   └── persistence/
-    └── CryptoWalletApiApplication.java
-```
-
-This separation allows future splitting into proper Gradle/Maven modules (e.g., `domain`, `app`, `infra`, `web`).
+  ```
+  ├── application/
+  │   └── wallet/
+  │       ├── create/
+  │       ├── addAsset/
+  │       ├── evaluate/
+  │       ├── get/
+  │       └── UseCase.java
+  ├── domain/
+  │   ├── wallet/
+  │   │   ├── Wallet.java
+  │   │   ├── Asset.java
+  │   │   ├── token/
+  │   ├── user/
+  │   └── exceptions/
+  ├── infrastructure/
+  │   ├── controller/
+  │   ├── job/
+  │   ├── persistence/
+  │   ├── restclient/
+  │   └── configurations/
+  └── resources/
+      ├── application.yml
+      ├── application-dev.yml
+      ├── db.migration/
+  ```
 
 ---
-
-## 🧠 Application Layer
-
-This layer coordinates the business logic by implementing **use cases** based on domain entities and services.
-Each use case is encapsulated in its own class, promoting single responsibility and clear orchestration.
-
-### 📦 Use Cases
-
-Located in `application/wallet`, the following use cases are implemented:
-
-- `WalletCreatorUseCase`:  
-  Handles user creation and automatically creates a wallet upon registration.
-  Enforces the rule that one user can only have one wallet.
-
-- `AddAssetToWalletUserCase`:  
-  Adds or updates a token (asset) in the user's wallet.
-  It fetches the token price and persists both the price and the updated wallet.
-
-- `EvaluateWalletUseCase`:  
-  Evaluates the wallet's total value either for the current date or a specified historical date.
-  Returns the total value and performance metrics.
-
-- `GetWalletUseCase`:  
-  Retrieves wallet information by wallet ID.
-
-All use cases extend from the common abstract class `UseCase<IN, OUT>`, which defines a clear input/output contract,
-improving testability and reusability.
 
 ## 🚀 Features
 
 ### ✅ Wallet Creation
 
-- One wallet per user (identified by email).
-- Prevents duplicate users.
+- A wallet is created when a user registers using an email.
+- One wallet per user is enforced.
 
 ### ✅ Add Asset
 
-- Add or update an asset in the wallet.
-- Price is fetched in real-time and persisted.
+- Add or update assets to a wallet.
+- Fetches current token price and persists it.
 
 ### ✅ Token Price Tracking
 
-- Scheduled background job to update token prices.
-- Concurrency: fetches prices for 3 tokens at a time.
-- Refresh interval is configurable.
+- Background job refreshes token prices.
+- Concurrency: updates 3 tokens in parallel.
+- Frequency: configurable via `application.yml`.
 
 ### ✅ Wallet Evaluation
 
-- Evaluate wallet value for current or **past** date.
-- Performance metrics:
-    - Total USD value
-    - Best/Worst performing token
-    - Percentage variation
+- Evaluate wallet value (now or by date).
+- Calculates:
+    - `total`: Total wallet value in USD.
+    - `best_asset` / `worst_asset`: Most and least performing tokens.
+    - `best_performance` / `worst_performance`: Percent change.
 
-### ✅ Data Persistence
+### ✅ Jobs
 
-- H2 (in-memory) database by default.
-- Domain models mapped via Spring Data JPA.
-
----
-
-## 📦 Tech Stack
-
-| Area             | Tech                              |
-|------------------|-----------------------------------|
-| Language         | Java 21                           |
-| Framework        | Spring Boot 3.2                   |
-| Migration        | Flyway                            |
-| HTTP Client      | Spring RestClient (uses CoinCap)  |
-| Scheduling       | `@Scheduled` + configurable delay |
-| Concurrency      | `ExecutorService` (fixed pool)    |
-| Persistence      | Spring Data JPA (H2)              |
-| Unit Test        | JUnit 5, Mockito                  |
-| Integration test | Test Containers                   |
+- **TokenInfoRefresherJob**: Refreshes metadata from CoinCap.
+- **TokenPriceUpdaterJob**: Periodically fetches current token prices.
 
 ---
 
-## 🔄 API Endpoints
+## 🔄 API Overview
 
-| Method | Endpoint                         | Description                              |
-|--------|----------------------------------|------------------------------------------|
-| POST   | `/api/wallets`                   | Create wallet for a new user             |
-| PATCH  | `/api/wallets/{walletId}/assets` | Add or update an asset in the wallet     |
-| POST   | `/api/wallets/evaluation`        | Evaluate wallet at current or given date |
-
-All requests/responses are in JSON format.
+| Endpoint                         | Description                       |
+|----------------------------------|-----------------------------------|
+| `POST /api/wallets`              | Creates a new wallet for a user   |
+| `PATCH /api/wallets/{id}/assets` | Add or update asset to wallet     |
+| `POST /api/wallets/evaluation`   | Evaluate current/historical value |
 
 ---
 
-## 🛠️ How to Run
+## 🧪 Tests
+
+- Unit tests on domain and use cases.
+- `AddAssetToWalletUserCaseTest`, `EvaluateWalletUseCaseTest`, etc.
+- Testcontainers configuration for integration testing with PostgreSQL.
+
+---
+
+## 🛠️ Running the Project
+
+### 🔹 Option 1: Local (H2 + Spring Boot)
 
 ```bash
-# Clone the project
-git clone https://github.com/your-repo/crypto-wallet-platform.git
+# Build JAR (optional)
+./mvnw clean package -DskipTests
 
-# Navigate to the app folder
-cd crypto-wallet-platform/crypto-wallet-api
-
-# Run with Maven
+# Run using Spring Boot and H2 (default profile)
 ./mvnw spring-boot:run
 ```
 
-Then access the API using Postman or curl.
+### 🔹 Option 2: Docker Compose (PostgreSQL + Dev Profile)
+
+A `Makefile` in the project root to simplify Docker commands:
+
+```bash
+# Build and start containers with PostgreSQL
+make docker-up-dev
+
+# Shutdown and clean up
+make docker-down-dev
+```
+
+📄 Uses `application-dev.yml` and Flyway migrations.
 
 ---
 
-## 🧪 Testing
+## 📐 Configuration Profiles
 
-- Unit tests written for domain and application layers.
-- `TokenPriceUpdaterJobUnitTest` checks job logic and concurrency.
-- Use cases tested with mocked gateways.
-
----
-
-## 🔮 Future Improvements
-
-| Area             | Enhancement Ideas                                 |
-|------------------|---------------------------------------------------|
-| 🧪 Testing       | Add integration + system tests                    |
-| 🐳 Docker        | Add Docker Compose for app + PostgreSQL           |
-| 🧾 Swagger       | Add OpenAPI (Swagger UI) for API documentation    |
-| 🗃️ Persistence  | Switch to PostgreSQL for production-like setup    |
-| ⏱ Scheduling     | Replace `@Scheduled` with Quartz Scheduler        |
-| 🔐 Auth          | Add authentication (e.g., OAuth2 / JWT)           |
-| 📊 Observability | Integrate Prometheus, Grafana for metrics/logs    |
-| 🚀 Multi-Module  | Extract `domain`, `app`, `infra` as separate jars |
+| Profile | Description                     |
+|---------|---------------------------------|
+| default | In-memory H2 for local dev/test |
+| dev     | PostgreSQL + Flyway             |
 
 ---
 
-## 🧾 Challenge Requirements Covered
+## 🔮 What Could Be Improved (Future Work)
 
-✅ Evaluate wallet based on token price at any given date  
-✅ Limit concurrency to 3 threads when updating prices  
-✅ Use CoinCap for token prices  
-✅ Return clean, structured JSON  
-✅ Clean code, test coverage, and modular design
+| Area           | Idea                                       |
+|----------------|--------------------------------------------|
+| API Docs       | Add Swagger / OpenAPI                      |
+| System Testing | Include E2E tests with Testcontainers      |
+| Caching        | Add Redis for static token data            |
+| Scheduling     | Replace Spring `@Scheduled` with Quartz    |
+| Auth           | Add JWT authentication                     |
+| Infra          | CI/CD with GitHub Actions, DockerHub, etc. |
 
 ---
 
-## 🧑‍💻 Author
+## ➕ API Usage (via `curl`)
+
+### 🧑‍💻 1. Create Wallet
+
+```bash
+curl --location 'http://localhost:8080/api/v1/wallets' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "test@email.com"
+}'
+Response:
+{"id":"2ed25bfa-c4d1-4490-8617-314695477b1c","total":0,"assets":[]}
+```
+
+---
+
+### 📦 2. Get Wallet by ID
+
+```bash
+curl --location 'http://localhost:8080/api/v1/wallets/2ed25bfa-c4d1-4490-8617-314695477b1c'
+Response:
+{"id":"2ed25bfa-c4d1-4490-8617-314695477b1c","total":0,"assets":[]}
+```
+
+---
+
+### ➕ 3. Add Asset to Wallet
+
+```bash
+curl --location --request PATCH 'http://localhost:8080/api/v1/wallets/2ed25bfa-c4d1-4490-8617-314695477b1c/assets' \
+--header 'Content-Type: application/json' \
+--data '{
+    "symbol": "SOL",
+    "price": 1000,
+    "quantity": 1
+}'
+Response:
+{"id":"2ed25bfa-c4d1-4490-8617-314695477b1c","total":127.4489665883468018,"assets":[{"symbol":"SOL","quantity":1,"price":127.4489665883468018,"value":127.4489665883468018}]}
+```
+
+---
+
+### 📊 4. Evaluate Wallet
+
+```bash
+curl --location 'http://localhost:8080/api/v1/wallets/evaluations' \
+--header 'Content-Type: application/json' \
+--data '{
+    "assets": [
+        {
+            "symbol": "BTC",
+            "quantity": 0.5,
+            "value": 35000
+        },
+        {
+            "symbol": "ETH",
+            "quantity": 4.25,
+            "value": 15310.71
+        }
+    ]
+}'
+Response:
+{"status":400,"error":"Token price not found to symbol: Unauthorized to fetch history for: bitcoin","timestamp":"2025-03-16T21:35:52.730692191Z","path":"/api/v1/wallets/evaluations"}
+```
+
+---
+
+## 📄 Challenge Requirements
+
+Implemented:
+
+- Evaluate wallet with real-time or historical prices
+- Track assets and prices
+- Periodic background updates
+- JSON-based requests and responses
+- Clear architecture and code organization
+
+---
+
+## 🤝 Author
 
 Developed with ❤️ by **Ronaldo Guastalli**
