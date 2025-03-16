@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/crypto_wallet
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+job:
+  token-info:
+    fixed-rate-ms: 21600000 # 6h
+  token-price:
+    fixed-rate-ms: 180000
+    initial-delay-ms: 180000
+
+rest-clients:
+  coin-cap:
+    base-url: "https://api.coincap.io"
